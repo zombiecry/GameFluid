@@ -26,7 +26,7 @@ class Mass:
 		# print "exit"
 		if self.enter==True:
 			self.enter=False
-			impulse = QVector2D(0,-300)
+			impulse = QVector2D(0,-100)
 			self.ApplyImpulse(impulse)
 	def ApplyImpulse(self,impulse):
 		self.vel=self.vel+QVector2D(0,impulse.y())
@@ -156,8 +156,8 @@ class Water2d:
 		self.boxes.append(box)
 	def __collision_detect(self):
 		for b in self.boxes:
-			l=int(b.Left()/self.grid_step)
-			r=int(b.Right()/self.grid_step)
+			l=int(b.Left()/self.grid_step)+1
+			r=int(b.Right()/self.grid_step)-1
 			# print "l: "+str(l)
 			# print "r: "+str(r)
 			for i in range(l,r):
