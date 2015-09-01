@@ -78,12 +78,13 @@ public class wave_generator : MonoBehaviour {
 	Vector2 calc_k(int m,int n){
 		return new Vector2 (Mathf.PI*(2*m-res_x)/real_x,Mathf.PI*(2*n-res_z)/real_z);
 	}
-	float gauss_random(float mean,float stand_deviation){
-		return 1;
+	float gauss_random(){
+		float x = Random.value;
+		return (1.0f/Mathf.Sqrt(2*Mathf.PI))*Mathf.Exp(-0.5f*x*x);
 	}
 	Complex calc_htilde_0(Vector2 k){
-		float ei = gauss_random (0, 1);
-		float er = gauss_random (0, 1);
+		float ei = gauss_random ();
+		float er = gauss_random ();
 		float ph_k = PhillipsTerm (k);
 		float temp = Mathf.Sqrt (ph_k / 2);
 		return new Complex (temp * er, temp * ei);
@@ -136,6 +137,7 @@ public class wave_generator : MonoBehaviour {
 		for (int m=0;m<res_x;m++) for (int n=0;n<res_z;n++){
 			h_tilde[m*res_z+n] = calc_htilde(m,n,t);
 		}
+		/*
 		for (int m=0;m<res_x;m++){
 			//fft (h_tilde,h_tilde,m*res_z,1);
 			dft (h_tilde,h_tilde,m*res_z,1);
@@ -144,11 +146,15 @@ public class wave_generator : MonoBehaviour {
 			//fft (h_tilde,h_tilde,n,res_z);
 			dft (h_tilde,h_tilde,n,res_z);
 		}
+		*/
 		float sign = 1;
+		string temp="";
 		for (int i=0; i<res_x; i++) for (int j=0; j<res_z; j++) {
 			if ((i+j)%2==1) sign = -1;
-			displace_map[i*res_z+j] = new Vector3(0,sign * h_tilde[i*res_z+j].real_);
+			displace_map[i*res_z+j] = new Vector3(0,sign * h_tilde[i*res_z+j].real_,0);
+			temp +=displace_map[i*res_z+j].ToString();
 		}
+		Debug.Log (temp);
 	}
 	void update_mesh(){
 #if UNITY_EDITOR
@@ -161,7 +167,10 @@ public class wave_generator : MonoBehaviour {
 			int vert_idx = i*(res_z+1)+j;
 			verts[vert_idx]=new Vector3(i*grid_step_x,0,j*grid_step_z); 
 			verts[vert_idx]+=displace_map[(i%res_x)*res_z+j%res_z];
+
 		}
+		Debug.Log ("aha i came here!\n");
+		mesh.vertices = verts;
 	}
 	// Update is called once per frame
 	void Update () {
