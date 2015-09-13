@@ -1,23 +1,28 @@
-﻿using UnityEngine;
-using System.Collections;
+﻿//#define NO_FT
 
+using UnityEngine;
+using System.Collections;
 [ExecuteInEditMode]
 [RequireComponent(typeof(MeshFilter))] 
 [RequireComponent(typeof(MeshRenderer))]
 public class wave_generator : MonoBehaviour {
+
 	public int res_z=8;
 	public int res_x=8;
 	public float time_scale = 1.0f;
 	public float cycle = 200;
 	public float gravity = 9.8f;
 	public float A =1.0f;
-	public Vector2 wind = new Vector2 (1, 0);
+	public Vector2 wind = new Vector2 (3, 0);
 
-	private int real_z = 100;
-	private int real_x = 100;
+	private int real_z = 8;
+	private int real_x = 8;
 	private float grid_step_x = 0;
 	private float grid_step_z = 0;
 	private Vector3 [] displace_map;
+
+	private Complex [] htilde_0;
+	private Complex [] htilde_0_1;
 	public struct Complex{
 		public Complex (float real,float image){
 			real_=real;
@@ -29,6 +34,9 @@ public class wave_generator : MonoBehaviour {
 		public static Complex operator *(Complex lhs, Complex rhs){
 			return new Complex (lhs.real_ * rhs.real_ - lhs.image_ * rhs.image_,
 			                   lhs.image_ * rhs.real_ + lhs.real_ * rhs.image_);
+		}
+		public static Complex operator *(Complex lhs, float x){
+			return new Complex (lhs.real_ * x,lhs.image_* x);
 		}
 		public static Complex operator +(Complex lhs, Complex rhs){
 			return new Complex (lhs.real_ + rhs.real_, lhs.image_ + rhs.image_);
@@ -50,6 +58,17 @@ public class wave_generator : MonoBehaviour {
 			displace_map[i]= new Vector3 (0,0,0);
 		}
 		h_tilde = new Complex[res_x * res_z];
+		htilde_0 = new Complex[res_x * res_z];
+		htilde_0_1 = new Complex[res_x * res_z];
+		for (int m=0;m<res_x;m++) for (int n=0;n<res_z;n++){
+			Vector2 k = calc_k (m, n);
+			htilde_0[m*res_z+n] = calc_htilde_0(k);
+			htilde_0_1[m*res_z+n] = calc_htilde_0 (-k).Conj ();
+			//htilde_0[m*res_z+n] = new Complex(1,0);
+			
+			//htilde_0_1[m*res_z+n] = new Complex(1,0);
+		}
+
 		//-----------------------------------------
 		//init the mesh
 		Vector3 [] verts = new Vector3[(res_x + 1) * (res_z + 1)];
@@ -78,23 +97,37 @@ public class wave_generator : MonoBehaviour {
 	Vector2 calc_k(int m,int n){
 		return new Vector2 (Mathf.PI*(2*m-res_x)/real_x,Mathf.PI*(2*n-res_z)/real_z);
 	}
-	float gauss_random(){
-		float x = Random.value;
-		return (1.0f/Mathf.Sqrt(2*Mathf.PI))*Mathf.Exp(-0.5f*x*x);
+	Complex gauss_random(){
+		float x1, x2, w; 
+		do {
+			x1 = Random.value;
+			x2 = Random.value;
+			w = x1 * x1 + x2 * x2;
+		} while ( w >= 1.0f );
+		w = Mathf.Sqrt((-2.0f * Mathf.Log(w)) / w);
+		return new Complex(x1 * w, x2 * w);
 	}
 	Complex calc_htilde_0(Vector2 k){
-		float ei = gauss_random ();
-		float er = gauss_random ();
+		Complex r = gauss_random ();
 		float ph_k = PhillipsTerm (k);
-		float temp = Mathf.Sqrt (ph_k / 2);
-		return new Complex (temp * er, temp * ei);
+		float temp = Mathf.Sqrt (ph_k / 2.0f);
+		return r*temp;
 	}
 	private float PhillipsTerm(Vector2 k){
 		float k_mag = k.magnitude;
-		float L = Vector2.Dot(wind , wind) / gravity;
-		float term1 = (Mathf.Exp (-1.0f / Mathf.Pow (k_mag * L, 2))) / (Mathf.Pow (k_mag, 4));
-		float term2 = Mathf.Pow (Vector2.Dot (k.normalized, wind.normalized), 2);
-		return A*term1*term2;
+		if (k_mag < 0.00001) return 0;
+		float k_mag2 = k_mag * k_mag;
+		float k_mag4 = k_mag2 * k_mag2;
+
+		float k_dot_w = Vector2.Dot (k.normalized, wind.normalized);
+		float k_dot_w2 = k_dot_w * k_dot_w;
+
+		float l = wind.magnitude * wind.magnitude;
+		float l2 = l * l;
+
+		float damping = 0.001f;
+		float l2d = l2 * damping*damping;
+		return A * Mathf.Exp (-1.0f / (k_mag2 * l2)) / k_mag4 * k_dot_w2 * Mathf.Exp (-k_mag2 * l2d);
 	}
 	//exp(ix) = cosx + isinx
 	public static Complex Expi(float x){
@@ -105,24 +138,21 @@ public class wave_generator : MonoBehaviour {
 	//w0=2*PI/T
 	public float calc_dispersion(Vector2 k){
 		float k_mag = k.magnitude;
-		float omega_0 = 2 * Mathf.PI / cycle;
+		float omega_0 = 2.0f * Mathf.PI / cycle;
 		return (Mathf.Floor(Mathf.Sqrt(gravity*k_mag)/omega_0))*omega_0;
 	}
 	// h0(k)*exp(i*wk*t)
 	//+h0(-k).conj()*exp(-i*wk*t)
-	Complex calc_htilde(int m,int n,float t){
-		Vector2 k = calc_k (m, n);
-		float wt = calc_dispersion (k) * t;
-		return calc_htilde_0 (k) * Expi (wt) + calc_htilde_0 (-k).Conj () * Expi (-wt);
-	}
-	void dft(Complex [] data_in,Complex [] data_out,int start,int stride){
-		int N = (data_in.Length-start)/stride;
+
+	void dft(Complex [] data_in,Complex [] data_out,int start,int stride,int N){
 		Complex [] temp_res = new Complex[N];
 		for (int k=0; k<N; k++) {
 			temp_res[k] = new Complex(0,0);
 			for (int j=0;j<N;j++){
 				temp_res[k]=temp_res[k]+Expi(2*Mathf.PI*j*k/N)*data_in[start+j*stride];
 			}
+		}
+		for (int k=0; k<N; k++) {
 			data_out[start+k*stride]=temp_res[k];
 		}
 	}
@@ -132,29 +162,55 @@ public class wave_generator : MonoBehaviour {
 			data_out[i]=data_in[i];
 		}
 	}
+	Complex calc_htilde(int m,int n,float t){
+		Vector2 k = calc_k (m, n);
+		float wt = calc_dispersion (k) * t;
+		return htilde_0[m*res_z+n] * Expi (wt) + htilde_0_1[m*res_z+n] * Expi (-wt);
+	}
 
 	void gen_dis_map(float t){
+	//	var k = calc_k (4, 4);
+
+		//Debug.Log (PhillipsTerm (k).ToString ());
+		string temp="";
 		for (int m=0;m<res_x;m++) for (int n=0;n<res_z;n++){
 			h_tilde[m*res_z+n] = calc_htilde(m,n,t);
+			//temp +="<"+m.ToString()+","+n.ToString ()+">";
+			//temp +=h_tilde[m*res_z+n].ToString();
+			//temp+= calc_k (m, n).ToString();
+
 		}
-		/*
+
+#if NO_FT
+		Complex [] temp1 = new Complex[res_x * res_z];
+		for (int x=0; x<res_x; x++) for (int z=0; z<res_z; z++) {
+				temp1 [x * res_z + z] = new Complex (0, 0);
+				//Vector2 vx = new Vector2 ((x-res_x/2.0f) * real_x/(float)res_x, (z-res_z/2.0f)*real_z/(float)res_z);
+				Vector2 vx = new Vector2((x) * real_x/(float)res_x, (z)*real_z/(float)res_z);
+				for (int m=0; m<res_x; m++) for (int n=0; n<res_z; n++) {
+						Vector2 k = calc_k (m, n);
+						Complex b = Expi (Vector2.Dot (k, vx));
+						Complex a = h_tilde[m*res_z+n];
+						temp1[x*res_z +z]=temp1[x*res_z+z]+a*b;
+				}
+				displace_map[x*res_z+z] = new Vector3(0,temp1[x*res_z+z].real_*0.03f,0);
+		}
+#else
+
 		for (int m=0;m<res_x;m++){
-			//fft (h_tilde,h_tilde,m*res_z,1);
-			dft (h_tilde,h_tilde,m*res_z,1);
+			dft (h_tilde,h_tilde,m*res_z,1,res_z);
 		}
-		for (int n=0; n<res_z; n++) {
-			//fft (h_tilde,h_tilde,n,res_z);
-			dft (h_tilde,h_tilde,n,res_z);
+		for (int q=0; q<res_z; q++) {
+			dft (h_tilde,h_tilde,q,res_z,res_x);
 		}
-		*/
 		float sign = 1;
-		string temp="";
 		for (int i=0; i<res_x; i++) for (int j=0; j<res_z; j++) {
-			if ((i+j)%2==1) sign = -1;
-			displace_map[i*res_z+j] = new Vector3(0,sign * h_tilde[i*res_z+j].real_,0);
-			temp +=displace_map[i*res_z+j].ToString();
+			if ((i+j)%2==0) sign=-1;
+			else sign=1;
+			displace_map[i*res_z+j] = new Vector3(0,sign * h_tilde[i*res_z+j].real_*0.03f,0);
 		}
-		Debug.Log (temp);
+#endif
+
 	}
 	void update_mesh(){
 #if UNITY_EDITOR
@@ -169,7 +225,6 @@ public class wave_generator : MonoBehaviour {
 			verts[vert_idx]+=displace_map[(i%res_x)*res_z+j%res_z];
 
 		}
-		Debug.Log ("aha i came here!\n");
 		mesh.vertices = verts;
 	}
 	// Update is called once per frame

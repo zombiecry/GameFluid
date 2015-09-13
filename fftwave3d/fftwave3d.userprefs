@@ -1,8 +1,9 @@
 ﻿<Properties>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" PreferredExecutionTarget="MonoDevelop.Default" />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
   <MonoDevelop.Ide.Workbench ActiveDocument="Assets\fftwater\scripts\wave_generator.cs">
     <Files>
-      <File FileName="Assets\fftwater\scripts\wave_generator.cs" Line="100" Column="38" />
+      <File FileName="Assets\fftwater\scripts\wave_generator.cs" Line="182" Column="4" />
+      <File FileName="Assets\fftwater\editors\fftwater_editor.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
