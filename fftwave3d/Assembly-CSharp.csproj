@@ -46,7 +46,10 @@
   </ItemGroup>
   <ItemGroup>
      <Compile Include="Assets\fftwater\editors\fftwater_editor.cs" />
+     <Compile Include="Assets\fftwater\scripts\fft_wave.cs" />
+     <Compile Include="Assets\fftwater\scripts\ocean_controller.cs" />
      <Compile Include="Assets\fftwater\scripts\wave_generator.cs" />
+     <None Include="Assets\fftwater\shaders\fftwave.compute" />
  <Reference Include="UnityEngine.UI">
  <HintPath>C:/Program Files/Unity 5.2.0b5/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
  </Reference>
